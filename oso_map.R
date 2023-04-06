@@ -29,7 +29,6 @@ shingle <- st_read("ShingleCreek.kml")
                    border.size = 0.5, st.dist = 0.05, 
                    st.color ="white"))
 
-
 rivers <- spTransform(readOGR(dsn = ".", 
                         stringsAsFactors = FALSE,
                "FWRVRSPL_polygon",
