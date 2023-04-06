@@ -54,22 +54,23 @@ lakes <- lakesall[lakesall@data$AREA_SQM > 4.8e5,]
 
 places <- read.csv("coords.csv")
 
-labs <- data.frame(text = c("5km", "CANADA", "USA"),
-                   x = c(-119.1, -120.03, -120.03),
-                   y = c(49.588, 49.02, 48.985))
+labs <- read.csv("map_labels.csv") %>% 
+  filter(group == "label") %>% select(2:ncol(.))
 
-water <- data.frame(text = c("Similkameen", "Osoyoos Lake",
-                             "Okanagan Lake", "Skaha Lake",
-                             "Vaseaux Lake", "Okanagan River"),
-                    x = c(-120.03, -119.4, -119.55, 
-                          -119.53, -119.5, -119.51),
-                    y = c(49.15, 49.07, 49.61, 
-                          49.42, 49.3, 49.12))
+water <- read.csv("map_labels.csv") %>% 
+  filter(group == "water") %>% select(2:ncol(.))
+
+lines <- read.csv("connectors.csv") %>% 
+  filter(shape == "line") %>% select(2:ncol(.))
+
 
 (labmap <- lakemap +
     theme_bw() +
     theme(panel.grid = element_blank(),
           panel.background = element_rect(fill = "gray90")) +
+    geom_segment(data = lines, 
+                 aes(x = x, xend = xend,
+                     y = y, yend = yend)) +
     geom_point(data = places,
                aes(x = x, y = y),
                shape = 21, size = 2.5,
