@@ -6,17 +6,21 @@ library(dplyr); library(ggplot2)
 library(mapdata); library(maptools)
 library(rgdal); library(ggspatial)
 library(sf); library(pgirmess)
+library(osmdata); library(ggh4x)
 
 # Map of Canada.
 can <- map_data("worldHires", "Canada")
 
+
 # Map of Shingle Creek.
-# Because this is a kml, easiest to add prior to shapefiles.
+# Because this is a kml, easiest to add prior to other shapefiles.
 shingle <- st_read("ShingleCreek.kml")      
 
+
 # For specifying elevation raster boundaries.
-(j <- pgirmess::bbox2sf(n = 49.6, s = 49.0,
-                        w = -120, e = -119,
+# Helps to go just outside of intended plot boundary.
+(j <- pgirmess::bbox2sf(n = 50, s = 48.0,
+                        w = -121, e = -118,
                         crs = 4326))
 
 
@@ -42,8 +46,7 @@ colnames(elevation_data)[3] <- "elevation"
                          mid = "gray90",
                         high = "black",
                         midpoint = 1800) +
-    theme(axis.ticks = element_blank(),
-          panel.background = element_rect(colour = "black", fill = NA),
+    theme(panel.background = element_rect(colour = "black", fill = NA),
           panel.grid = element_blank(),
           legend.position = "none",
           plot.margin = margin(0.1, 0.1, -1/3, 0.1, "cm")) +
@@ -52,11 +55,28 @@ colnames(elevation_data)[3] <- "elevation"
             color = "blue4") +
     coord_sf(xlim = c(-120, -119),
              ylim = c(49,49.6))  +
-    ggspatial::annotation_scale(location = "tr",pad_y = unit(1.75, "cm")) +
-    ggspatial::annotation_north_arrow(location = "tr", 
+    ggspatial::annotation_scale(location = "tl",pad_y = unit(1.75, "cm")) +
+    ggspatial::annotation_north_arrow(location = "tl", 
                                       pad_y = unit(1/4, "cm"),
-                                      pad_x = unit(1/3, "cm"),
+                                      pad_x = unit(1/4, "cm"),
                style = ggspatial::north_arrow_fancy_orienteering()))
+
+
+# Obtain road data.
+(okhi <- opq(j) %>% 
+  add_osm_feature(key = "highway",
+                  value = c("motorway", "primary", "primary_link",
+                            "motorway_link", "secondary", "secondary_link", 
+                            "trunk")) %>% 
+  osmdata_sf())
+
+
+# Plot original map with major roads.
+(mapR <- map + geom_sf(data = okhi$osm_lines,
+              inherit.aes = FALSE, alpha = 1/2) +
+  coord_sf(xlim = c(-120, -119),
+           ylim = c(49,49.6)))
+
 
 # Read in River shapefiles.
 rivers <- spTransform(readOGR(dsn = ".", 
@@ -65,6 +85,7 @@ rivers <- spTransform(readOGR(dsn = ".",
                dropNULLGeometries = TRUE),
                CRS("+proj=longlat + datum=WGS84"))
 
+
 # Read in lake shapefiles.
 lakesall <- spTransform(readOGR(dsn = ".", 
                       stringsAsFactors = FALSE,
@@ -72,17 +93,20 @@ lakesall <- spTransform(readOGR(dsn = ".",
                   dropNULLGeometries = TRUE),
                   CRS("+proj=longlat + datum=WGS84")) 
 
-# Only include lakes over a select area.
+
+# Only include lakes over a select area/size.
 lakes <- lakesall[lakesall@data$AREA_SQM > 4.8e5,]
 
+
 # Add above shapes on original map.
-(lakemap <- map + 
+(lakemap <- mapR + 
     geom_polygon(data = lakes,
                  aes(x = long, y = lat, group = group),
                  color = "blue4", fill = "lightblue") +
     geom_polygon(data = rivers,
                  aes(x = long, y = lat, group = group),
                  color = "blue4", fill = "blue4"))
+
 
 # Read in place coordinates.
 places <- read.csv("coords.csv")
@@ -102,6 +126,7 @@ lines <- read.csv("connectors.csv") %>%
 # Coordinates for arrows.
 arrows <- read.csv("connectors.csv") %>% 
   filter(shape == "arrow") %>% select(2:ncol(.))
+
 
 # Add above shapefiles to previous map.
 (labmap <- lakemap +
@@ -126,7 +151,7 @@ arrows <- read.csv("connectors.csv") %>%
                   fontface = "italic"), 
               color = "dodgerblue3") +
     geom_text(data = places, 
-              aes(x = x + 0.08, 
+              aes(x = x + 0.09, 
                   y = y, hjust = "left", 
                   label = Name))
 
