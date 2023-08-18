@@ -45,13 +45,17 @@ colnames(elevation_data)[3] <- "elevation"
     theme(axis.ticks = element_blank(),
           panel.background = element_rect(colour = "black", fill = NA),
           panel.grid = element_blank(),
-          legend.position = "none") +
+          legend.position = "none",
+          plot.margin = margin(0.1, 0.1, -1/3, 0.1, "cm")) +
+    labs(x = "", y = "") +
     geom_sf(data = shingle,
             color = "blue4") +
     coord_sf(xlim = c(-120, -119),
-             ylim = c(49.02,49.6))  +
+             ylim = c(49,49.6))  +
     ggspatial::annotation_scale(location = "tr",pad_y = unit(1.75, "cm")) +
-    ggspatial::annotation_north_arrow(location = "tr",pad_y = unit(1/4, "cm"),
+    ggspatial::annotation_north_arrow(location = "tr", 
+                                      pad_y = unit(1/4, "cm"),
+                                      pad_x = unit(1/3, "cm"),
                style = ggspatial::north_arrow_fancy_orienteering()))
 
 # Read in River shapefiles.
@@ -78,9 +82,7 @@ lakes <- lakesall[lakesall@data$AREA_SQM > 4.8e5,]
                  color = "blue4", fill = "lightblue") +
     geom_polygon(data = rivers,
                  aes(x = long, y = lat, group = group),
-                 color = "blue4", fill = "blue4") +
-    xlab(expression("Longitude"~(degree*W))) +
-    ylab(expression("Latitude"~(degree*N))))
+                 color = "blue4", fill = "blue4"))
 
 # Read in place coordinates.
 places <- read.csv("coords.csv")
@@ -103,8 +105,6 @@ arrows <- read.csv("connectors.csv") %>%
 
 # Add above shapefiles to previous map.
 (labmap <- lakemap +
-    xlab("") +
-    ylab("") +
     geom_segment(data = lines, 
                  aes(x = x, xend = xend,
                      y = y, yend = yend)) +
