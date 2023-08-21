@@ -6,7 +6,8 @@ library(dplyr); library(ggplot2)
 library(mapdata); library(maptools)
 library(rgdal); library(ggspatial)
 library(sf); library(pgirmess)
-library(osmdata); library(ggh4x)
+library(osmdata); library(bcmaps)
+library(raster)
 
 # Map of Canada.
 can <- map_data("worldHires", "Canada")
@@ -58,11 +59,11 @@ colnames(elevation_data)[3] <- "elevation"
     ggspatial::annotation_scale(location = "tl",pad_y = unit(1.75, "cm")) +
     ggspatial::annotation_north_arrow(location = "tl", 
                                       pad_y = unit(1/4, "cm"),
-                                      pad_x = unit(1/4, "cm"),
+                                      pad_x = unit(3/5, "cm"),
                style = ggspatial::north_arrow_fancy_orienteering()))
 
 
-# Obtain road data.
+# Obtain major roadway data.
 (okhi <- opq(j) %>% 
   add_osm_feature(key = "highway",
                   value = c("motorway", "primary", "primary_link",
@@ -107,25 +108,27 @@ lakes <- lakesall[lakesall@data$AREA_SQM > 4.8e5,]
                  aes(x = long, y = lat, group = group),
                  color = "blue4", fill = "blue4"))
 
+# Clear up memory.
+rm(mapR); rm(lakesall); gc()
 
 # Read in place coordinates.
 places <- read.csv("coords.csv")
 
 # Read in labels.
 labs <- read.csv("map_labels.csv") %>% 
-  filter(group == "label") %>% select(2:ncol(.))
+  filter(group == "label") %>% dplyr::select(2:ncol(.))
 
 # Subset of above labels for water bodies only.
 water <- read.csv("map_labels.csv") %>% 
-  filter(group == "water") %>% select(2:ncol(.))
+  filter(group == "water") %>% dplyr::select(2:ncol(.))
 
 # Line coordinates for labelling map.
 lines <- read.csv("connectors.csv") %>% 
-  filter(shape == "line") %>% select(2:ncol(.))
+  filter(shape == "line") %>% dplyr::select(2:ncol(.))
 
 # Coordinates for arrows.
 arrows <- read.csv("connectors.csv") %>% 
-  filter(shape == "arrow") %>% select(2:ncol(.))
+  filter(shape == "arrow") %>% dplyr::select(2:ncol(.))
 
 
 # Add above shapefiles to previous map.
@@ -145,7 +148,7 @@ arrows <- read.csv("connectors.csv") %>%
                fill = "gray60") +
     geom_text(data=labs, hjust = "left",
               aes(x = x, y = y,
-                  label = text))) +
+                  label = text)) +
     geom_text(data = water, hjust = "left",
               aes(x = x, y = y, label = text,
                   fontface = "italic"), 
@@ -153,9 +156,82 @@ arrows <- read.csv("connectors.csv") %>%
     geom_text(data = places, 
               aes(x = x + 0.09, 
                   y = y, hjust = "left", 
-                  label = Name))
+                  label = Name)))
 
 ggsave("plots/oso_map.png", 
        width = 2000,
        height = 2000,
        units = "px")
+
+
+# Inset -------------------------------------------------------------------
+
+# Read in Canada and US base data.
+ca <- map_data("world", "Canada")
+us <- map_data("state")
+
+# Download shape of Alaska. 
+us <- raster::getData("GADM", country = "USA", level = 1)
+alaska <- us[us$NAME_1 %in% "Alaska", c(1:3)]
+
+# Download BC boundary data. 
+bcp <- st_geometry(bc_bound()); plot(bcp)
+
+# Inset plot (BC and some surrounding USA).
+(ins <- ggplot() +
+  geom_polygon(data = us,
+               aes(x = long, y = lat,
+                   group = group),
+               fill = "gray95",
+               colour = "black",
+               linewidth = 1/4) +
+  geom_polygon(data = ca, 
+               aes(x = long, y = lat, group = group),
+               colour = "black", fill = "gray90")+
+  geom_sf(data = bcp, color = "black") +
+  geom_polygon(data = alaska,
+               aes(x = long, y = lat, group = group),
+               fill = "gray95",
+               colour = "black",
+               linewidth = 1/4) +
+  annotate("rect", fill = NA, color = "black",
+           xmin = -119, xmax = -120,
+           ymin = 49, ymax = 49.6) +
+  coord_sf(ylim = c(45, 59),
+           xlim = c(-133, -113),
+           crs = "WGS84")  +
+  geom_segment(aes(xend = -119, x = -115,
+                   yend = 49.7, y = 53),
+               lineend = "round", linejoin = "round",
+               arrow = arrow(length = unit(0.25, "cm")),
+               colour = "red2")  +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid =  element_blank(),
+        panel.background = element_rect(fill = alpha("skyblue", 1/10)),
+        panel.border = element_rect(colour = "black", fill = NA, size = 1),
+        plot.margin = margin(0,0,0,0),
+        plot.background = element_rect(fill = NA, color = NA)) +
+  labs(x = "", y = ""))
+
+ggsave("plots/inset.png", units = "px",
+       width = 1250, height = 2000)
+
+# Add inset --------------------------------------------------------------------
+
+library(cowplot)
+
+ggdraw(plot = labmap) +
+  draw_plot(
+    {
+      ins
+    },
+    x= 0.67,
+    y = 0.55,
+    width = 0.3,
+    height = 0.4
+  )
+
+ggsave("plots/map_w_inset.png", units = "px",
+       width = 2000, height = 2000)
+
