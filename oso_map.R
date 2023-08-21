@@ -79,8 +79,8 @@ colnames(elevation_data)[3] <- "elevation"
            ylim = c(49,49.6)))
 
 
-# Read in River shapefiles.
-rivers <- spTransform(readOGR(dsn = ".", 
+# Read in river shapefiles.
+rivers <- spTransform(readOGR(dsn = "FWRVRSPL", 
                         stringsAsFactors = FALSE,
                "FWRVRSPL_polygon",
                dropNULLGeometries = TRUE),
@@ -88,7 +88,7 @@ rivers <- spTransform(readOGR(dsn = ".",
 
 
 # Read in lake shapefiles.
-lakesall <- spTransform(readOGR(dsn = ".", 
+lakesall <- spTransform(readOGR(dsn = "250_WATPS", 
                       stringsAsFactors = FALSE,
                   "250_WATPS_polygon",
                   dropNULLGeometries = TRUE),
@@ -166,6 +166,11 @@ ggsave("plots/oso_map.png",
 
 # Inset -------------------------------------------------------------------
 
+# This part is a bit awkward because the default map_data USA data has Alaska
+# on a different scale, so we download (a much larger) raster file instead. 
+# The map_data source for Canada also doesn't have provincial boundaries, so we
+# overlay the province using the R package bcmaps.
+
 # Read in Canada and US base data.
 ca <- map_data("world", "Canada")
 us <- map_data("state")
@@ -212,7 +217,10 @@ bcp <- st_geometry(bc_bound()); plot(bcp)
         panel.border = element_rect(colour = "black", fill = NA, size = 1),
         plot.margin = margin(0,0,0,0),
         plot.background = element_rect(fill = NA, color = NA)) +
-  labs(x = "", y = ""))
+  labs(x = "", y = "") +
+  annotate(geom = "text", x = -123.4, y = 54, 
+           label = "British
+Columbia", size = 3))
 
 ggsave("plots/inset.png", units = "px",
        width = 1250, height = 2000)
