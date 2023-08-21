@@ -240,6 +240,7 @@ ggdraw(plot = labmap) +
     height = 0.4
   )
 
-ggsave("plots/map_w_inset.png", units = "px",
+# Final labelled plot.
+ggsave("plots/map_inset.png", units = "px",
        width = 2000, height = 2000)
 
