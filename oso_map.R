@@ -6,8 +6,10 @@ library(dplyr); library(ggplot2)
 library(mapdata); library(maptools)
 library(rgdal); library(ggspatial)
 library(sf); library(pgirmess)
-library(osmdata); library(bcmaps)
-library(raster)
+library(bcmaps); library(raster)
+
+devtools::install_github("ropensci/osmdata"); library(osmdata)
+
 
 # Map of Canada.
 can <- map_data("worldHires", "Canada")
@@ -111,6 +113,23 @@ lakes <- lakesall[lakesall@data$AREA_SQM > 4.8e5,]
 # Clear up memory.
 rm(mapR); rm(lakesall); gc()
 
+# Add water bodies from within WA.
+DNRhydro <- readOGR(dsn = "DNR_hydrography", stringsAsFactors = FALSE,
+                    "DNR_Hydrography_-_Water_Bodies_-_Forest_Practices_Regulation",
+                    dropNULLGeometries = TRUE) 
+
+# Subset from northern WA system only. 
+hydrosub <- spTransform(DNRhydro, CRS("+proj=longlat + datum=WGS84")) %>% 
+  subset(., WB_GNIS_NM %in% c("Okanogan River", "Columbia River",
+                              "Osoyoos Lake", "Similkameen River"))
+
+rm(DNRhydro); gc()
+
+(lakemap2 <- lakemap +
+    geom_polygon(data = hydrosub,
+                 aes(x = long, y = lat, group = group),
+                 color = "blue4", fill = "lightblue"))
+
 # Read in place coordinates.
 places <- read.csv("coords.csv")
 
@@ -132,7 +151,7 @@ arrows <- read.csv("connectors.csv") %>%
 
 
 # Add above shapefiles to previous map.
-(labmap <- lakemap +
+(labmap <- lakemap2 +
     geom_segment(data = lines, 
                  aes(x = x, xend = xend,
                      y = y, yend = yend)) +
