@@ -1,15 +1,15 @@
 
-setwd("~/osoyoos/map")
+setwd("~/osoyoos/map2/okanagan_map")
 
 # Libraries
+
+remove.packages("osmdata"); devtools::install_github("ropensci/osmdata"); library(osmdata)
+
 library(dplyr); library(ggplot2)
 library(mapdata); library(maptools)
 library(rgdal); library(ggspatial)
 library(sf); library(pgirmess)
 library(bcmaps); library(raster)
-
-devtools::install_github("ropensci/osmdata"); library(osmdata)
-
 
 # Map of Canada.
 can <- map_data("worldHires", "Canada")
@@ -17,7 +17,7 @@ can <- map_data("worldHires", "Canada")
 
 # Map of Shingle Creek.
 # Because this is a kml, easiest to add prior to other shapefiles.
-shingle <- st_read("ShingleCreek.kml")      
+shingle <- st_read("data/ShingleCreek.kml")      
 
 
 # For specifying elevation raster boundaries.
@@ -65,13 +65,13 @@ colnames(elevation_data)[3] <- "elevation"
                style = ggspatial::north_arrow_fancy_orienteering()))
 
 
-# Obtain major roadway data.
-(okhi <- opq(j) %>% 
-  add_osm_feature(key = "highway",
+# Obtain major roadway data. Have to specify package for some reason.
+(okhi <- osmdata::opq(j) %>% 
+  osmdata::add_osm_feature(key = "highway",
                   value = c("motorway", "primary", "primary_link",
                             "motorway_link", "secondary", "secondary_link", 
                             "trunk")) %>% 
-  osmdata_sf())
+  osmdata::osmdata_sf())
 
 
 # Plot original map with major roads.
@@ -131,22 +131,23 @@ rm(DNRhydro); gc()
                  color = "blue4", fill = "lightblue"))
 
 # Read in place coordinates.
-places <- read.csv("coords.csv")
+places <- read.csv("./data/coords.csv") %>% 
+  filter(Name %in% c("Oliver", "Osoyoos") | Feature == "Dam")
 
 # Read in labels.
-labs <- read.csv("map_labels.csv") %>% 
+labs <- read.csv("./data/map_labels.csv") %>% 
   filter(group == "label") %>% dplyr::select(2:ncol(.))
 
 # Subset of above labels for water bodies only.
-water <- read.csv("map_labels.csv") %>% 
+water <- read.csv("./data/map_labels.csv") %>% 
   filter(group == "water") %>% dplyr::select(2:ncol(.))
 
 # Line coordinates for labelling map.
-lines <- read.csv("connectors.csv") %>% 
+lines <- read.csv("./data/connectors.csv") %>% 
   filter(shape == "line") %>% dplyr::select(2:ncol(.))
 
 # Coordinates for arrows.
-arrows <- read.csv("connectors.csv") %>% 
+arrows <- read.csv("./data/connectors.csv") %>% 
   filter(shape == "arrow") %>% dplyr::select(2:ncol(.))
 
 
@@ -160,7 +161,12 @@ arrows <- read.csv("connectors.csv") %>%
                      y = y, yend = yend),
                  arrow = arrow(length = unit(0.15, "cm")),
                  color = "navy") +
-    geom_point(data = places,
+    geom_point(data = places[places$Feature == "Dam",],
+               aes(x = x, y = y),
+               shape = 22, size = 2.5,
+               color = "black",
+               fill = "gray60") +
+    geom_point(data = places[places$Feature != "Dam",],
                aes(x = x, y = y),
                shape = 21, size = 2.5,
                color = "black",
@@ -175,7 +181,7 @@ arrows <- read.csv("connectors.csv") %>%
     geom_text(data = places, 
               aes(x = x + 0.09, 
                   y = y, hjust = "left", 
-                  label = Name)))
+                  label = stringr::str_wrap(Name, 14))))
 
 ggsave("plots/oso_map.png", 
        width = 2000,
